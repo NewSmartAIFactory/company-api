@@ -1,7 +1,13 @@
+using System.Text.Json.Serialization;
 using NewSmartAIFactory.CompanyApi.Endpoints;
 using NewSmartAIFactory.CompanyApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 builder.Services.AddSingleton<FactoryStateService>();
 builder.Services.AddCors(options =>
@@ -23,7 +29,7 @@ app.MapGet("/", () => Results.Ok(new
 {
     name = "NewSmartAIFactory Company API",
     status = "running",
-    version = "0.2.0"
+    version = "0.2.1"
 }));
 
 app.MapHealthEndpoints();
