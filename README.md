@@ -1,10 +1,10 @@
-﻿# company-api
+# company-api
 
 Backend API for NewSmartAIFactory.
 
 ## Stack
 
-- .NET 9 Web API
+- .NET 10 Web API
 - Minimal APIs
 - PostgreSQL, Redis, Qdrant, and RabbitMQ integration planned
 
@@ -12,6 +12,7 @@ Backend API for NewSmartAIFactory.
 
 ```powershell
 cd C:\data\DevApps\AICompany\company-api\src\Company.Api
+$env:ASPNETCORE_ENVIRONMENT="Development"
 dotnet run --urls http://localhost:5000
 ```
 
@@ -22,3 +23,9 @@ dotnet run --urls http://localhost:5000
 - `GET /api/agents`
 - `GET /api/projects`
 - `GET /api/workflows`
+- `GET /api/tasks`
+- `GET /api/tasks/{id}`
+- `GET /api/decisions`
+- `GET /api/decisions/{id}`
+- `GET /api/reports`
+- `GET /api/reports/{id}`
