@@ -8,11 +8,13 @@ public static class TaskEndpoints
     {
         var group = app.MapGroup("/api/tasks").WithTags("Tasks");
 
-        group.MapGet("/", (FactoryStateService state) => Results.Ok(state.Tasks));
+        group.MapGet("/", async (PostgresFactoryReadService state, CancellationToken cancellationToken) =>
+            Results.Ok(await state.GetTasksAsync(cancellationToken)));
 
-        group.MapGet("/{id}", (string id, FactoryStateService state) =>
+        group.MapGet("/{id}", async (string id, PostgresFactoryReadService state, CancellationToken cancellationToken) =>
         {
-            var task = state.Tasks.FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            var tasks = await state.GetTasksAsync(cancellationToken);
+            var task = tasks.FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
             return task is null ? Results.NotFound() : Results.Ok(task);
         });
 

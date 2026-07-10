@@ -8,11 +8,13 @@ public static class ReportEndpoints
     {
         var group = app.MapGroup("/api/reports").WithTags("Reports");
 
-        group.MapGet("/", (FactoryStateService state) => Results.Ok(state.Reports));
+        group.MapGet("/", async (PostgresFactoryReadService state, CancellationToken cancellationToken) =>
+            Results.Ok(await state.GetReportsAsync(cancellationToken)));
 
-        group.MapGet("/{id}", (string id, FactoryStateService state) =>
+        group.MapGet("/{id}", async (string id, PostgresFactoryReadService state, CancellationToken cancellationToken) =>
         {
-            var report = state.Reports.FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            var reports = await state.GetReportsAsync(cancellationToken);
+            var report = reports.FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
             return report is null ? Results.NotFound() : Results.Ok(report);
         });
 

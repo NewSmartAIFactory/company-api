@@ -1,4 +1,4 @@
-﻿using NewSmartAIFactory.CompanyApi.Services;
+using NewSmartAIFactory.CompanyApi.Services;
 
 namespace NewSmartAIFactory.CompanyApi.Endpoints;
 
@@ -8,7 +8,8 @@ public static class ProjectEndpoints
     {
         var group = app.MapGroup("/api/projects").WithTags("Projects");
 
-        group.MapGet("/", (FactoryStateService state) => Results.Ok(state.Projects));
+        group.MapGet("/", async (PostgresFactoryReadService state, CancellationToken cancellationToken) =>
+            Results.Ok(await state.GetProjectsAsync(cancellationToken)));
 
         return app;
     }

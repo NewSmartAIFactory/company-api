@@ -8,11 +8,13 @@ public static class DecisionEndpoints
     {
         var group = app.MapGroup("/api/decisions").WithTags("Decisions");
 
-        group.MapGet("/", (FactoryStateService state) => Results.Ok(state.Decisions));
+        group.MapGet("/", async (PostgresFactoryReadService state, CancellationToken cancellationToken) =>
+            Results.Ok(await state.GetDecisionsAsync(cancellationToken)));
 
-        group.MapGet("/{id}", (string id, FactoryStateService state) =>
+        group.MapGet("/{id}", async (string id, PostgresFactoryReadService state, CancellationToken cancellationToken) =>
         {
-            var decision = state.Decisions.FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            var decisions = await state.GetDecisionsAsync(cancellationToken);
+            var decision = decisions.FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
             return decision is null ? Results.NotFound() : Results.Ok(decision);
         });
 
