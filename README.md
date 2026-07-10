@@ -2,20 +2,23 @@
 
 Backend API for NewSmartAIFactory.
 
-Planned stack:
+## Stack
 
 - .NET 9 Web API
-- PostgreSQL
-- Redis
-- Modular monolith first, microservices later if needed
+- Minimal APIs
+- PostgreSQL, Redis, Qdrant, and RabbitMQ integration planned
 
-Initial domains:
+## Run
 
-- Identity
-- Agent Management
-- Workflow
-- Project Management
-- Task Management
-- Memory
-- Approval
-- Reporting
+```powershell
+cd C:\data\DevApps\AICompany\company-api\src\Company.Api
+dotnet run --urls http://localhost:5000
+```
+
+## Endpoints
+
+- `GET /`
+- `GET /api/health`
+- `GET /api/agents`
+- `GET /api/projects`
+- `GET /api/workflows`
