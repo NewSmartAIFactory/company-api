@@ -21,6 +21,8 @@ dotnet run --urls http://localhost:5000
 - `GET /`
 - `GET /api/health`
 - `GET /api/agents`
+- `GET /api/agents/{id}`
+- `POST /api/agents/sync`
 - `GET /api/projects`
 - `GET /api/workflows`
 - `GET /api/tasks`

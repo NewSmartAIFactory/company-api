@@ -12,6 +12,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSingleton<FactoryStateService>();
 builder.Services.AddScoped<PostgresFactoryReadService>();
 builder.Services.AddScoped<PostgresFactoryWriteService>();
+builder.Services.AddScoped<AgentRegistrySyncService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Dashboard", policy =>
@@ -44,5 +45,11 @@ app.MapTaskEndpoints();
 app.MapDecisionEndpoints();
 app.MapReportEndpoints();
 app.MapAuditEndpoints();
+
+using (var scope = app.Services.CreateScope())
+{
+    var registry = scope.ServiceProvider.GetRequiredService<AgentRegistrySyncService>();
+    await registry.SyncAsync(CancellationToken.None);
+}
 
 app.Run();

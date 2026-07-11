@@ -1,5 +1,6 @@
 using NewSmartAIFactory.CompanyApi.Models;
 using Npgsql;
+using System.Text.Json;
 
 namespace NewSmartAIFactory.CompanyApi.Services;
 
@@ -40,6 +41,33 @@ public sealed class PostgresFactoryReadService
         }
 
         return items;
+    }
+
+    public async Task<AgentDetail?> GetAgentAsync(string id, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            select id, name, role, department, status, current_task, prompt, rules, workflow, memory_scope,
+                   tools_json::text, definition_path, definition_updated_at_utc
+            from agents
+            where id = @id;
+            """;
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("id", id);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+
+        return new AgentDetail(
+            reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
+            ParseAgentStatus(reader.GetString(4)), reader.IsDBNull(5) ? null : reader.GetString(5),
+            reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
+            reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
+            reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
+            reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
+            JsonSerializer.Deserialize<string[]>(reader.GetString(10)) ?? [],
+            reader.IsDBNull(11) ? null : reader.GetString(11),
+            reader.IsDBNull(12) ? null : reader.GetFieldValue<DateTimeOffset>(12));
     }
 
     public async Task<IReadOnlyList<ProjectSummary>> GetProjectsAsync(CancellationToken cancellationToken)
