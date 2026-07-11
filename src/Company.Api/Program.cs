@@ -13,6 +13,7 @@ builder.Services.AddSingleton<FactoryStateService>();
 builder.Services.AddScoped<PostgresFactoryReadService>();
 builder.Services.AddScoped<PostgresFactoryWriteService>();
 builder.Services.AddScoped<AgentRegistrySyncService>();
+builder.Services.AddScoped<ApprovalWorkflowService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Dashboard", policy =>
@@ -46,6 +47,7 @@ app.MapTaskEndpoints();
 app.MapDecisionEndpoints();
 app.MapReportEndpoints();
 app.MapAuditEndpoints();
+app.MapApprovalEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {
