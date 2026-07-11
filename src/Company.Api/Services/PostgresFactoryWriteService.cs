@@ -82,7 +82,7 @@ public sealed class PostgresFactoryWriteService
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        const string reportSql = "insert into reports (id, project_id, report_type, period, progress_percent) values (@id, @project_id, @report_type, @period, @progress_percent);";
+        const string reportSql = "insert into reports (id, project_id, report_type, period, progress_percent, summary, published_by) values (@id, @project_id, @report_type, @period, @progress_percent, @summary, @published_by);";
         await using (var command = new NpgsqlCommand(reportSql, connection, transaction))
         {
             command.Parameters.AddWithValue("id", id);
@@ -90,6 +90,8 @@ public sealed class PostgresFactoryWriteService
             command.Parameters.AddWithValue("report_type", request.ReportType.Trim());
             command.Parameters.AddWithValue("period", request.Period.Trim());
             command.Parameters.AddWithValue("progress_percent", request.ProgressPercent);
+            command.Parameters.AddWithValue("summary", (object?)request.Summary?.Trim() ?? DBNull.Value);
+            command.Parameters.AddWithValue("published_by", request.PublishedBy ?? "PM");
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
 

@@ -9,5 +9,8 @@ public sealed record ReportSummary(
     IReadOnlyList<string> Done,
     IReadOnlyList<string> Doing,
     IReadOnlyList<string> Blocked,
-    IReadOnlyList<string> DecisionsNeeded
+    IReadOnlyList<string> DecisionsNeeded,
+    string? Summary = null,
+    string PublishedBy = "PM",
+    DateTimeOffset? CreatedAtUtc = null
 );

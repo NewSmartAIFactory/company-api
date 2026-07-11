@@ -9,5 +9,6 @@ public sealed record CreateReportRequest(
     IReadOnlyList<string>? Doing,
     IReadOnlyList<string>? Blocked,
     IReadOnlyList<string>? DecisionsNeeded,
-    string? PublishedBy
+    string? PublishedBy,
+    string? Summary = null
 );

@@ -311,7 +311,7 @@ public sealed class PostgresFactoryReadService
     public async Task<IReadOnlyList<ReportSummary>> GetReportsAsync(CancellationToken cancellationToken)
     {
         const string reportSql = """
-            select id, project_id, report_type, period, progress_percent
+            select id, project_id, report_type, period, progress_percent, summary, published_by, created_at_utc
             from reports
             order by id desc;
             """;
@@ -330,10 +330,10 @@ public sealed class PostgresFactoryReadService
         await using var command = new NpgsqlCommand(reportSql, connection);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
-        var reports = new List<(string Id, string ProjectId, string ReportType, string Period, int ProgressPercent)>();
+        var reports = new List<(string Id, string ProjectId, string ReportType, string Period, int ProgressPercent, string? Summary, string PublishedBy, DateTimeOffset CreatedAt)>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            reports.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4)));
+            reports.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetString(6), reader.GetFieldValue<DateTimeOffset>(7)));
         }
 
         await reader.CloseAsync();
@@ -371,7 +371,7 @@ public sealed class PostgresFactoryReadService
                 }
             }
 
-            items.Add(new ReportSummary(report.Id, report.ProjectId, report.ReportType, report.Period, report.ProgressPercent, done, doing, blocked, decisionsNeeded));
+            items.Add(new ReportSummary(report.Id, report.ProjectId, report.ReportType, report.Period, report.ProgressPercent, done, doing, blocked, decisionsNeeded, report.Summary, report.PublishedBy, report.CreatedAt));
         }
 
         return items;

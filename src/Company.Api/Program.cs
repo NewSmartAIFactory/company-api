@@ -14,6 +14,7 @@ builder.Services.AddScoped<PostgresFactoryReadService>();
 builder.Services.AddScoped<PostgresFactoryWriteService>();
 builder.Services.AddScoped<AgentRegistrySyncService>();
 builder.Services.AddScoped<ApprovalWorkflowService>();
+builder.Services.AddScoped<ReportGenerationService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Dashboard", policy =>
