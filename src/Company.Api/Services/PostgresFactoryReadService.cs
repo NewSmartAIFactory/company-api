@@ -264,6 +264,19 @@ public sealed class PostgresFactoryReadService
         return items;
     }
 
+    public async Task<TaskDetail?> GetTaskAsync(string id, CancellationToken cancellationToken)
+    {
+        const string taskSql = "select id, project_id, sprint_id, title, description, owner_agent_id, status, priority, due_date, created_at_utc, updated_at_utc from tasks where id=@id;";
+        await using var connection = new NpgsqlConnection(_connectionString); await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(taskSql, connection); command.Parameters.AddWithValue("id", id);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken); if (!await reader.ReadAsync(cancellationToken)) return null;
+        var values = new { Id=reader.GetString(0), Project=reader.GetString(1), Sprint=reader.IsDBNull(2)?null:reader.GetString(2), Title=reader.GetString(3), Description=reader.IsDBNull(4)?null:reader.GetString(4), Owner=reader.GetString(5), Status=reader.GetString(6), Priority=reader.GetString(7), Due=reader.IsDBNull(8)?(DateOnly?)null:reader.GetFieldValue<DateOnly>(8), Created=reader.GetFieldValue<DateTimeOffset>(9), Updated=reader.GetFieldValue<DateTimeOffset>(10) }; await reader.CloseAsync();
+        var criteria = new List<string>(); await using (var c = new NpgsqlCommand("select criteria from task_acceptance_criteria where task_id=@id order by criteria_order", connection)) { c.Parameters.AddWithValue("id", id); await using var r=await c.ExecuteReaderAsync(cancellationToken); while(await r.ReadAsync(cancellationToken)) criteria.Add(r.GetString(0)); }
+        var dependencies = new List<string>(); await using (var c = new NpgsqlCommand("select depends_on_task_id from task_dependencies where task_id=@id order by depends_on_task_id", connection)) { c.Parameters.AddWithValue("id", id); await using var r=await c.ExecuteReaderAsync(cancellationToken); while(await r.ReadAsync(cancellationToken)) dependencies.Add(r.GetString(0)); }
+        var activity = new List<AuditLogSummary>(); await using (var c = new NpgsqlCommand("select id,action,entity_type,entity_id,actor,previous_value,new_value,reason,created_at_utc from audit_logs where entity_type='task' and entity_id=@id order by created_at_utc desc limit 50", connection)) { c.Parameters.AddWithValue("id", id); await using var r=await c.ExecuteReaderAsync(cancellationToken); while(await r.ReadAsync(cancellationToken)) activity.Add(new AuditLogSummary(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetString(4),r.IsDBNull(5)?null:r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.IsDBNull(7)?null:r.GetString(7),r.GetFieldValue<DateTimeOffset>(8))); }
+        return new TaskDetail(values.Id,values.Project,values.Sprint,values.Title,values.Description,values.Owner,values.Status,values.Priority,values.Due,criteria,dependencies,values.Created,values.Updated,activity);
+    }
+
     public async Task<IReadOnlyList<DecisionSummary>> GetDecisionsAsync(CancellationToken cancellationToken)
     {
         const string sql = """

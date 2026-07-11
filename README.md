@@ -36,6 +36,9 @@ dotnet run --urls http://localhost:5000
 - `GET /api/workflows`
 - `GET /api/tasks`
 - `GET /api/tasks/{id}`
+- `POST /api/tasks`
+- `PUT /api/tasks/{id}`
+- `DELETE /api/tasks/{id}`
 - `GET /api/decisions`
 - `GET /api/decisions/{id}`
 - `GET /api/reports`

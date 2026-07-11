@@ -216,6 +216,33 @@ public sealed class PostgresFactoryWriteService
         command.Parameters.AddWithValue("start", (object?)request.StartDate ?? DBNull.Value); command.Parameters.AddWithValue("end", (object?)request.EndDate ?? DBNull.Value);
     }
 
+    public async Task<string> CreateTaskAsync(SaveTaskRequest request, CancellationToken token)
+    {
+        var id=request.Id!.Trim(); await using var connection=new NpgsqlConnection(_connectionString); await connection.OpenAsync(token); await using var transaction=await connection.BeginTransactionAsync(token);
+        const string sql="insert into tasks (id,project_id,sprint_id,title,description,owner_agent_id,status,priority,due_date) values (@id,@project,@sprint,@title,@description,@owner,@status,@priority,@due);";
+        await using(var command=new NpgsqlCommand(sql,connection,transaction)){AddTaskParameters(command,id,request);await command.ExecuteNonQueryAsync(token);} await ReplaceTaskCollectionsAsync(connection,transaction,id,request,token);
+        await InsertAuditAsync(connection,transaction,"task.created","task",id,request.Actor??"PM",null,request.Status,request.Title,token); await transaction.CommitAsync(token); return id;
+    }
+    public async Task<bool> UpdateTaskAsync(string id, SaveTaskRequest request, CancellationToken token)
+    {
+        await using var connection=new NpgsqlConnection(_connectionString); await connection.OpenAsync(token); await using var transaction=await connection.BeginTransactionAsync(token); var old=await GetStatusAsync(connection,transaction,"tasks",id,token); if(old is null)return false;
+        const string sql="update tasks set project_id=@project,sprint_id=@sprint,title=@title,description=@description,owner_agent_id=@owner,status=@status,priority=@priority,due_date=@due,updated_at_utc=now() where id=@id;";
+        await using(var command=new NpgsqlCommand(sql,connection,transaction)){AddTaskParameters(command,id,request);await command.ExecuteNonQueryAsync(token);} await ReplaceTaskCollectionsAsync(connection,transaction,id,request,token);
+        await InsertAuditAsync(connection,transaction,"task.updated","task",id,request.Actor??"PM",old,request.Status,request.Title,token); await transaction.CommitAsync(token); return true;
+    }
+    public async Task<bool> DeleteTaskAsync(string id,string actor,CancellationToken token)
+    {
+        await using var connection=new NpgsqlConnection(_connectionString); await connection.OpenAsync(token); await using var transaction=await connection.BeginTransactionAsync(token); var status=await GetStatusAsync(connection,transaction,"tasks",id,token); if(status is null)return false;
+        await using var command=new NpgsqlCommand("delete from tasks where id=@id",connection,transaction);command.Parameters.AddWithValue("id",id);await command.ExecuteNonQueryAsync(token);await InsertAuditAsync(connection,transaction,"task.deleted","task",id,actor,status,null,null,token);await transaction.CommitAsync(token);return true;
+    }
+    private static void AddTaskParameters(NpgsqlCommand command,string id,SaveTaskRequest r){command.Parameters.AddWithValue("id",id);command.Parameters.AddWithValue("project",r.ProjectId.Trim());command.Parameters.AddWithValue("sprint",(object?)r.SprintId??DBNull.Value);command.Parameters.AddWithValue("title",r.Title.Trim());command.Parameters.AddWithValue("description",(object?)r.Description??DBNull.Value);command.Parameters.AddWithValue("owner",r.OwnerAgentId.Trim());command.Parameters.AddWithValue("status",r.Status.Trim());command.Parameters.AddWithValue("priority",r.Priority.Trim());command.Parameters.AddWithValue("due",(object?)r.DueDate??DBNull.Value);}
+    private static async Task ReplaceTaskCollectionsAsync(NpgsqlConnection c,NpgsqlTransaction t,string id,SaveTaskRequest r,CancellationToken token)
+    {
+        await using(var clear=new NpgsqlCommand("delete from task_acceptance_criteria where task_id=@id; delete from task_dependencies where task_id=@id;",c,t)){clear.Parameters.AddWithValue("id",id);await clear.ExecuteNonQueryAsync(token);}
+        var criteria=(r.AcceptanceCriteria??[]).Where(x=>!string.IsNullOrWhiteSpace(x)).ToArray();for(var i=0;i<criteria.Length;i++){await using var cmd=new NpgsqlCommand("insert into task_acceptance_criteria(task_id,criteria_order,criteria) values(@id,@n,@value)",c,t);cmd.Parameters.AddWithValue("id",id);cmd.Parameters.AddWithValue("n",i+1);cmd.Parameters.AddWithValue("value",criteria[i].Trim());await cmd.ExecuteNonQueryAsync(token);}
+        foreach(var dependency in (r.Dependencies??[]).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase)){await using var cmd=new NpgsqlCommand("insert into task_dependencies(task_id,depends_on_task_id) values(@id,@dependency)",c,t);cmd.Parameters.AddWithValue("id",id);cmd.Parameters.AddWithValue("dependency",dependency.Trim());await cmd.ExecuteNonQueryAsync(token);}
+    }
+
     private static async Task<string?> GetStatusAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, string table, string id, CancellationToken cancellationToken)
     {
         await using var command = new NpgsqlCommand($"select status from {table} where id = @id for update;", connection, transaction);
