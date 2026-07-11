@@ -16,6 +16,7 @@ builder.Services.AddScoped<AgentRegistrySyncService>();
 builder.Services.AddScoped<ApprovalWorkflowService>();
 builder.Services.AddScoped<ReportGenerationService>();
 builder.Services.AddScoped<EventStoreService>();
+builder.Services.AddScoped<WorkflowRunnerService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Dashboard", policy =>
@@ -51,6 +52,7 @@ app.MapReportEndpoints();
 app.MapAuditEndpoints();
 app.MapApprovalEndpoints();
 app.MapEventEndpoints();
+app.MapWorkflowRunEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {
