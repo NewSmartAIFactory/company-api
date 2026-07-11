@@ -1,6 +1,7 @@
 using NewSmartAIFactory.CompanyApi.Models;
 using NewSmartAIFactory.CompanyApi.Services;
 using Npgsql;
+using System.Text.Json;
 
 namespace NewSmartAIFactory.CompanyApi.Endpoints;
 
@@ -55,7 +56,7 @@ public static class ReportEndpoints
             }
         });
 
-        group.MapPost("/generate", async (GenerateReportRequest request, ReportGenerationService generator, PostgresFactoryReadService reader, CancellationToken cancellationToken) =>
+        group.MapPost("/generate", async (GenerateReportRequest request, ReportGenerationService generator, PostgresFactoryReadService reader, EventStoreService events, CancellationToken cancellationToken) =>
         {
             if (string.IsNullOrWhiteSpace(request.ProjectId) || string.IsNullOrWhiteSpace(request.Period) || !ReportTypes.Contains(request.ReportType))
                 return Results.BadRequest(new { error = "invalid_report", message = "ProjectId, period, and a supported reportType are required." });
@@ -63,6 +64,7 @@ public static class ReportEndpoints
             {
                 var id = await generator.GenerateAsync(request, cancellationToken);
                 var report = (await reader.GetReportsAsync(cancellationToken)).First(item => item.Id == id);
+                await events.AppendAsync(new CreateDomainEventRequest("ReportPublished", "Report", id, request.ProjectId, null, request.PublishedBy, JsonSerializer.SerializeToElement(new { request.ReportType, request.Period, report.ProgressPercent })), cancellationToken);
                 return Results.Created($"/api/reports/{id}", report);
             }
             catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)

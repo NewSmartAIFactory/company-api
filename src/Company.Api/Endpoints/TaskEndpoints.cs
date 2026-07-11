@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using NewSmartAIFactory.CompanyApi.Models;
 using NewSmartAIFactory.CompanyApi.Services;
 using Npgsql;
+using System.Text.Json;
 
 namespace NewSmartAIFactory.CompanyApi.Endpoints;
 
@@ -14,10 +15,10 @@ public static partial class TaskEndpoints
         var group = app.MapGroup("/api/tasks").WithTags("Tasks");
         group.MapGet("/", async (PostgresFactoryReadService reader, CancellationToken token) => Results.Ok(await reader.GetTasksAsync(token)));
         group.MapGet("/{id}", async (string id, PostgresFactoryReadService reader, CancellationToken token) => { var task = await reader.GetTaskAsync(id, token); return task is null ? Results.NotFound() : Results.Ok(task); });
-        group.MapPost("/", async (SaveTaskRequest request, PostgresFactoryWriteService writer, PostgresFactoryReadService reader, CancellationToken token) =>
+        group.MapPost("/", async (SaveTaskRequest request, PostgresFactoryWriteService writer, PostgresFactoryReadService reader, EventStoreService events, CancellationToken token) =>
         {
             var error = Validate(request, true); if (error is not null) return error;
-            try { var id = await writer.CreateTaskAsync(request, token); return Results.Created($"/api/tasks/{id}", await reader.GetTaskAsync(id, token)); }
+            try { var id = await writer.CreateTaskAsync(request, token); await events.AppendAsync(new CreateDomainEventRequest("TaskAssigned","Task",id,request.ProjectId,null,request.Actor,JsonSerializer.SerializeToElement(new { request.OwnerAgentId, request.SprintId, request.Priority })),token); return Results.Created($"/api/tasks/{id}", await reader.GetTaskAsync(id, token)); }
             catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation) { return Results.Conflict(new { error = "task_exists", message = $"Task '{request.Id}' already exists." }); }
             catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation) { return Results.BadRequest(new { error = "invalid_reference", message = "Project, sprint, agent, or dependency does not exist." }); }
         });
@@ -28,10 +29,10 @@ public static partial class TaskEndpoints
             catch (PostgresException ex) when (ex.SqlState is PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.CheckViolation) { return Results.BadRequest(new { error = "invalid_reference", message = "Project, sprint, agent, or dependency is invalid." }); }
         });
         group.MapDelete("/{id}", async (string id, string? actor, PostgresFactoryWriteService writer, CancellationToken token) => await writer.DeleteTaskAsync(id, actor ?? "PM", token) ? Results.NoContent() : Results.NotFound());
-        group.MapPatch("/{id}/status", async (string id, UpdateTaskStatusRequest request, PostgresFactoryWriteService writer, PostgresFactoryReadService reader, CancellationToken token) =>
+        group.MapPatch("/{id}/status", async (string id, UpdateTaskStatusRequest request, PostgresFactoryWriteService writer, PostgresFactoryReadService reader, EventStoreService events, CancellationToken token) =>
         {
             if (string.IsNullOrWhiteSpace(request.Status)) return Results.BadRequest(new { error = "status_required", message = "Status is required." });
-            try { return await writer.UpdateTaskStatusAsync(id, request.Status.Trim(), "CEO", null, token) ? Results.Ok((await reader.GetTasksAsync(token)).First(x => x.Id.Equals(id, StringComparison.OrdinalIgnoreCase))) : Results.NotFound(); }
+            try { if(!await writer.UpdateTaskStatusAsync(id, request.Status.Trim(), "CEO", null, token))return Results.NotFound();var task=(await reader.GetTasksAsync(token)).First(x=>x.Id.Equals(id,StringComparison.OrdinalIgnoreCase));var type=request.Status.Equals("Done",StringComparison.OrdinalIgnoreCase)?"WorkCompleted":request.Status.Equals("Blocked",StringComparison.OrdinalIgnoreCase)?"AgentBlocked":"TaskStatusChanged";await events.AppendAsync(new CreateDomainEventRequest(type,"Task",id,task.ProjectId,null,"CEO",JsonSerializer.SerializeToElement(new{status=request.Status})),token);return Results.Ok(task); }
             catch (ArgumentException ex) { return Results.BadRequest(new { error = "invalid_status", message = ex.Message }); }
         });
         return app;
