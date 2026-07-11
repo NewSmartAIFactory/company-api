@@ -29,3 +29,5 @@ dotnet run --urls http://localhost:5000
 - `GET /api/decisions/{id}`
 - `GET /api/reports`
 - `GET /api/reports/{id}`
+- `POST /api/reports`
+- `GET /api/audit-logs?limit=50`

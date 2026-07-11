@@ -26,7 +26,7 @@ public static class DecisionEndpoints
             PostgresFactoryReadService reader,
             CancellationToken cancellationToken) =>
         {
-            var updated = await writer.ApproveDecisionAsync(id, cancellationToken);
+            var updated = await writer.ApproveDecisionAsync(id, request.DecidedBy ?? "CEO", request.Reason, cancellationToken);
             if (!updated)
             {
                 return Results.NotFound();
@@ -44,7 +44,7 @@ public static class DecisionEndpoints
             PostgresFactoryReadService reader,
             CancellationToken cancellationToken) =>
         {
-            var updated = await writer.RejectDecisionAsync(id, cancellationToken);
+            var updated = await writer.RejectDecisionAsync(id, request.DecidedBy ?? "CEO", request.Reason, cancellationToken);
             if (!updated)
             {
                 return Results.NotFound();

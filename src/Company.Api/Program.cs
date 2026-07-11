@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using NewSmartAIFactory.CompanyApi.Endpoints;
 using NewSmartAIFactory.CompanyApi.Services;
 
@@ -43,5 +43,6 @@ app.MapWorkflowEndpoints();
 app.MapTaskEndpoints();
 app.MapDecisionEndpoints();
 app.MapReportEndpoints();
+app.MapAuditEndpoints();
 
 app.Run();

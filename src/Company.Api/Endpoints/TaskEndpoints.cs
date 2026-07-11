@@ -33,7 +33,7 @@ public static class TaskEndpoints
 
             try
             {
-                var updated = await writer.UpdateTaskStatusAsync(id, request.Status.Trim(), cancellationToken);
+                var updated = await writer.UpdateTaskStatusAsync(id, request.Status.Trim(), "CEO", null, cancellationToken);
                 if (!updated)
                 {
                     return Results.NotFound();

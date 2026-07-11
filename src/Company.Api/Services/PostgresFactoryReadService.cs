@@ -210,7 +210,7 @@ public sealed class PostgresFactoryReadService
         const string reportSql = """
             select id, project_id, report_type, period, progress_percent
             from reports
-            order by id;
+            order by id desc;
             """;
 
         const string itemSql = """
@@ -271,6 +271,30 @@ public sealed class PostgresFactoryReadService
             items.Add(new ReportSummary(report.Id, report.ProjectId, report.ReportType, report.Period, report.ProgressPercent, done, doing, blocked, decisionsNeeded));
         }
 
+        return items;
+    }
+
+    public async Task<IReadOnlyList<AuditLogSummary>> GetAuditLogsAsync(int limit, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            select id, action, entity_type, entity_id, actor, previous_value, new_value, reason, created_at_utc
+            from audit_logs
+            order by created_at_utc desc, id desc
+            limit @limit;
+            """;
+        var items = new List<AuditLogSummary>();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("limit", limit);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            items.Add(new AuditLogSummary(
+                reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6),
+                reader.IsDBNull(7) ? null : reader.GetString(7), reader.GetFieldValue<DateTimeOffset>(8)));
+        }
         return items;
     }
 
