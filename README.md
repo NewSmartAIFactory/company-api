@@ -28,6 +28,11 @@ dotnet run --urls http://localhost:5000
 - `POST /api/projects`
 - `PUT /api/projects/{id}`
 - `DELETE /api/projects/{id}`
+- `GET /api/sprints`
+- `GET /api/sprints/{id}`
+- `POST /api/sprints`
+- `PUT /api/sprints/{id}`
+- `DELETE /api/sprints/{id}`
 - `GET /api/workflows`
 - `GET /api/tasks`
 - `GET /api/tasks/{id}`

@@ -118,6 +118,49 @@ public sealed class PostgresFactoryReadService
             reader.GetFieldValue<DateTimeOffset>(6), reader.GetFieldValue<DateTimeOffset>(7));
     }
 
+    public async Task<IReadOnlyList<SprintSummary>> GetSprintsAsync(string? projectId, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            select s.id, s.project_id, s.name, s.goal, s.status, s.start_date, s.end_date,
+                   count(t.id)::int, count(t.id) filter (where t.status = 'Done')::int
+            from sprints s left join tasks t on t.sprint_id = s.id
+            where (@project_id is null or s.project_id = @project_id)
+            group by s.id
+            order by s.created_at_utc desc;
+            """;
+        var items = new List<SprintSummary>();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.Add("project_id", NpgsqlTypes.NpgsqlDbType.Text).Value = (object?)projectId ?? DBNull.Value;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) items.Add(new SprintSummary(
+            reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4),
+            reader.IsDBNull(5) ? null : reader.GetFieldValue<DateOnly>(5), reader.IsDBNull(6) ? null : reader.GetFieldValue<DateOnly>(6), reader.GetInt32(7), reader.GetInt32(8)));
+        return items;
+    }
+
+    public async Task<SprintDetail?> GetSprintAsync(string id, CancellationToken cancellationToken)
+    {
+        const string sprintSql = "select id, project_id, name, goal, status, start_date, end_date, created_at_utc, updated_at_utc from sprints where id = @id;";
+        const string taskSql = "select id, project_id, title, owner_agent_id, status, priority from tasks where sprint_id = @id order by id;";
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(sprintSql, connection);
+        command.Parameters.AddWithValue("id", id);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+        var values = (reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4),
+            reader.IsDBNull(5) ? (DateOnly?)null : reader.GetFieldValue<DateOnly>(5), reader.IsDBNull(6) ? (DateOnly?)null : reader.GetFieldValue<DateOnly>(6),
+            reader.GetFieldValue<DateTimeOffset>(7), reader.GetFieldValue<DateTimeOffset>(8));
+        await reader.CloseAsync();
+        var backlog = new List<TaskSummary>();
+        await using var taskCommand = new NpgsqlCommand(taskSql, connection); taskCommand.Parameters.AddWithValue("id", id);
+        await using var taskReader = await taskCommand.ExecuteReaderAsync(cancellationToken);
+        while (await taskReader.ReadAsync(cancellationToken)) backlog.Add(new TaskSummary(taskReader.GetString(0), taskReader.GetString(1), taskReader.GetString(2), taskReader.GetString(3), taskReader.GetString(4), taskReader.GetString(5), []));
+        return new SprintDetail(values.Item1, values.Item2, values.Item3, values.Item4, values.Item5, values.Item6, values.Item7, values.Item8, values.Item9, backlog);
+    }
+
     public async Task<IReadOnlyList<WorkflowSummary>> GetWorkflowsAsync(CancellationToken cancellationToken)
     {
         const string workflowSql = """

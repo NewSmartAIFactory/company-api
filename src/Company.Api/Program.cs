@@ -40,6 +40,7 @@ app.MapGet("/", () => Results.Ok(new
 app.MapHealthEndpoints();
 app.MapAgentEndpoints();
 app.MapProjectEndpoints();
+app.MapSprintEndpoints();
 app.MapWorkflowEndpoints();
 app.MapTaskEndpoints();
 app.MapDecisionEndpoints();

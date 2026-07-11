@@ -176,6 +176,46 @@ public sealed class PostgresFactoryWriteService
         command.Parameters.AddWithValue("description", (object?)request.Description?.Trim() ?? DBNull.Value);
     }
 
+    public async Task<string> CreateSprintAsync(SaveSprintRequest request, CancellationToken cancellationToken)
+    {
+        var id = request.Id!.Trim();
+        await using var connection = new NpgsqlConnection(_connectionString); await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        const string sql = "insert into sprints (id, project_id, name, goal, status, start_date, end_date) values (@id, @project, @name, @goal, @status, @start, @end);";
+        await using (var command = new NpgsqlCommand(sql, connection, transaction)) { AddSprintParameters(command, id, request); await command.ExecuteNonQueryAsync(cancellationToken); }
+        await InsertAuditAsync(connection, transaction, "sprint.created", "sprint", id, request.Actor ?? "PM", null, request.Status, request.Goal, cancellationToken);
+        await transaction.CommitAsync(cancellationToken); return id;
+    }
+
+    public async Task<bool> UpdateSprintAsync(string id, SaveSprintRequest request, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString); await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var previousStatus = await GetStatusAsync(connection, transaction, "sprints", id, cancellationToken); if (previousStatus is null) return false;
+        const string sql = "update sprints set project_id=@project, name=@name, goal=@goal, status=@status, start_date=@start, end_date=@end, updated_at_utc=now() where id=@id;";
+        await using (var command = new NpgsqlCommand(sql, connection, transaction)) { AddSprintParameters(command, id, request); await command.ExecuteNonQueryAsync(cancellationToken); }
+        await InsertAuditAsync(connection, transaction, "sprint.updated", "sprint", id, request.Actor ?? "PM", previousStatus, request.Status, request.Goal, cancellationToken);
+        await transaction.CommitAsync(cancellationToken); return true;
+    }
+
+    public async Task<bool> DeleteSprintAsync(string id, string actor, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString); await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var status = await GetStatusAsync(connection, transaction, "sprints", id, cancellationToken); if (status is null) return false;
+        await using var command = new NpgsqlCommand("delete from sprints s where id=@id and not exists (select 1 from tasks where sprint_id=s.id);", connection, transaction); command.Parameters.AddWithValue("id", id);
+        if (await command.ExecuteNonQueryAsync(cancellationToken) == 0) throw new InvalidOperationException("Sprint has backlog tasks and cannot be deleted.");
+        await InsertAuditAsync(connection, transaction, "sprint.deleted", "sprint", id, actor, status, null, null, cancellationToken);
+        await transaction.CommitAsync(cancellationToken); return true;
+    }
+
+    private static void AddSprintParameters(NpgsqlCommand command, string id, SaveSprintRequest request)
+    {
+        command.Parameters.AddWithValue("id", id); command.Parameters.AddWithValue("project", request.ProjectId.Trim());
+        command.Parameters.AddWithValue("name", request.Name.Trim()); command.Parameters.AddWithValue("goal", request.Goal.Trim()); command.Parameters.AddWithValue("status", request.Status.Trim());
+        command.Parameters.AddWithValue("start", (object?)request.StartDate ?? DBNull.Value); command.Parameters.AddWithValue("end", (object?)request.EndDate ?? DBNull.Value);
+    }
+
     private static async Task<string?> GetStatusAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, string table, string id, CancellationToken cancellationToken)
     {
         await using var command = new NpgsqlCommand($"select status from {table} where id = @id for update;", connection, transaction);
