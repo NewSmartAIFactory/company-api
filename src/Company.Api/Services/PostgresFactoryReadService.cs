@@ -99,6 +99,25 @@ public sealed class PostgresFactoryReadService
         return items;
     }
 
+    public async Task<ProjectDetail?> GetProjectAsync(string id, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            select id, name, status, progress_percent, current_sprint, description, created_at_utc, updated_at_utc
+            from projects
+            where id = @id;
+            """;
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("id", id);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+        return new ProjectDetail(
+            reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetInt32(3),
+            reader.IsDBNull(4) ? null : reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5),
+            reader.GetFieldValue<DateTimeOffset>(6), reader.GetFieldValue<DateTimeOffset>(7));
+    }
+
     public async Task<IReadOnlyList<WorkflowSummary>> GetWorkflowsAsync(CancellationToken cancellationToken)
     {
         const string workflowSql = """

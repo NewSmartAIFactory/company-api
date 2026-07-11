@@ -102,6 +102,80 @@ public sealed class PostgresFactoryWriteService
         return id;
     }
 
+    public async Task<string> CreateProjectAsync(SaveProjectRequest request, CancellationToken cancellationToken)
+    {
+        var id = request.Id!.Trim();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        const string sql = """
+            insert into projects (id, name, status, progress_percent, current_sprint, description, created_at_utc, updated_at_utc)
+            values (@id, @name, @status, @progress, @sprint, @description, now(), now());
+            """;
+        await using (var command = new NpgsqlCommand(sql, connection, transaction))
+        {
+            AddProjectParameters(command, id, request);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        await InsertAuditAsync(connection, transaction, "project.created", "project", id, request.Actor ?? "CEO", null, request.Status, request.Description, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return id;
+    }
+
+    public async Task<bool> UpdateProjectAsync(string id, SaveProjectRequest request, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var previousStatus = await GetStatusAsync(connection, transaction, "projects", id, cancellationToken);
+        if (previousStatus is null) return false;
+        const string sql = """
+            update projects set name = @name, status = @status, progress_percent = @progress,
+                current_sprint = @sprint, description = @description, updated_at_utc = now()
+            where id = @id;
+            """;
+        await using (var command = new NpgsqlCommand(sql, connection, transaction))
+        {
+            AddProjectParameters(command, id, request);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        await InsertAuditAsync(connection, transaction, "project.updated", "project", id, request.Actor ?? "CEO", previousStatus, request.Status, request.Description, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> DeleteProjectAsync(string id, string actor, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var previousStatus = await GetStatusAsync(connection, transaction, "projects", id, cancellationToken);
+        if (previousStatus is null) return false;
+        await InsertAuditAsync(connection, transaction, "project.deleted", "project", id, actor, previousStatus, null, null, cancellationToken);
+        const string sql = """
+            delete from projects p where p.id = @id
+              and not exists (select 1 from tasks where project_id = p.id)
+              and not exists (select 1 from decisions where project_id = p.id)
+              and not exists (select 1 from reports where project_id = p.id);
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("id", id);
+        if (await command.ExecuteNonQueryAsync(cancellationToken) == 0)
+            throw new InvalidOperationException("Project has related work and must be archived instead of deleted.");
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    private static void AddProjectParameters(NpgsqlCommand command, string id, SaveProjectRequest request)
+    {
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("name", request.Name.Trim());
+        command.Parameters.AddWithValue("status", request.Status.Trim());
+        command.Parameters.AddWithValue("progress", request.ProgressPercent);
+        command.Parameters.AddWithValue("sprint", (object?)request.CurrentSprint?.Trim() ?? DBNull.Value);
+        command.Parameters.AddWithValue("description", (object?)request.Description?.Trim() ?? DBNull.Value);
+    }
+
     private static async Task<string?> GetStatusAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, string table, string id, CancellationToken cancellationToken)
     {
         await using var command = new NpgsqlCommand($"select status from {table} where id = @id for update;", connection, transaction);
