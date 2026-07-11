@@ -11,6 +11,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddSingleton<FactoryStateService>();
 builder.Services.AddScoped<PostgresFactoryReadService>();
+builder.Services.AddScoped<PostgresFactoryWriteService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Dashboard", policy =>
@@ -30,8 +31,9 @@ app.MapGet("/", () => Results.Ok(new
 {
     name = "NewSmartAIFactory Company API",
     status = "running",
-    version = "0.3.0",
-    storage = "postgres"
+    version = "0.4.0",
+    storage = "postgres",
+    actions = new[] { "task-status", "decision-approval" }
 }));
 
 app.MapHealthEndpoints();
