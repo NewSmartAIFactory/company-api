@@ -6,7 +6,7 @@ Backend API for NewSmartAIFactory.
 
 - .NET 10 Web API
 - Minimal APIs
-- PostgreSQL, Redis, Qdrant, and RabbitMQ integration planned
+- PostgreSQL, Redis, Qdrant, and RabbitMQ integrations
 
 ## Run
 
@@ -20,6 +20,7 @@ dotnet run --urls http://localhost:5000
 
 - `GET /`
 - `GET /api/health`
+  - Returns `status` (`healthy` or `degraded`) and component checks such as `components.qdrant`.
 - `GET /api/agents`
 - `GET /api/agents/{id}`
 - `POST /api/agents/sync`
