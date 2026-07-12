@@ -40,9 +40,9 @@ app.MapGet("/", () => Results.Ok(new
 {
     name = "NewSmartAIFactory Company API",
     status = "running",
-    version = "0.4.0",
+    version = "0.5.0",
     storage = "postgres",
-    actions = new[] { "task-status", "decision-approval" }
+    actions = new[] { "task-status", "decision-approval", "memory-semantic-search" }
 }));
 
 app.MapHealthEndpoints();
