@@ -65,9 +65,11 @@ Cons:
 - More manual mapping
 - No migrations built in
 
-## Recommendation
+## Current implementation
 
-Use EF Core for Sprint 1.3 because the domain model is still evolving and migrations will help keep schema changes explicit.
+The API currently uses explicit Npgsql SQL services and ordered SQL files under
+`database/schema`. PostgreSQL is the source of truth; Qdrant is a derived index
+for semantic memory search.
 
 ## Acceptance Criteria
 
