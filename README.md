@@ -57,4 +57,6 @@ dotnet run --urls http://localhost:5000
 - `GET /api/agent-runs`
 - `POST /api/agent-runs`
 - `POST /api/agent-runs/{id}/complete`
+- `GET /api/memory/search`
+- `POST /api/memory`
 - `GET /api/audit-logs?limit=50`
