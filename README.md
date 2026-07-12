@@ -54,4 +54,7 @@ dotnet run --urls http://localhost:5000
 - `GET /api/workflow-runs`
 - `POST /api/workflow-runs`
 - `POST /api/workflow-runs/{id}/advance`
+- `GET /api/agent-runs`
+- `POST /api/agent-runs`
+- `POST /api/agent-runs/{id}/complete`
 - `GET /api/audit-logs?limit=50`
