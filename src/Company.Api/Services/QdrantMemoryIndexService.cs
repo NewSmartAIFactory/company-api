@@ -60,7 +60,7 @@ public sealed class QdrantMemoryIndexService
         return memory;
     }
 
-    public async Task<IReadOnlyList<MemorySummary>> SearchAsync(string query, int limit, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<MemorySummary>> SearchAsync(string query, string? scope, int limit, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query)) return Array.Empty<MemorySummary>();
         await EnsureCollectionAsync(cancellationToken);
@@ -68,7 +68,8 @@ public sealed class QdrantMemoryIndexService
         {
             vector = BuildVector(query),
             limit = Math.Clamp(limit, 1, 50),
-            with_payload = false
+            with_payload = false,
+            filter = string.IsNullOrWhiteSpace(scope) ? null : new { must = new[] { new { key = "scope", match = new { value = scope } } } }
         }, cancellationToken);
         response.EnsureSuccessStatusCode();
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
