@@ -60,6 +60,33 @@ public sealed class QdrantMemoryIndexService
         return memory;
     }
 
+    public async Task<IReadOnlyList<MemorySummary>> SearchAsync(string query, int limit, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return Array.Empty<MemorySummary>();
+        await EnsureCollectionAsync(cancellationToken);
+        using var response = await _http.PostAsJsonAsync($"collections/{Collection}/points/search", new
+        {
+            vector = BuildVector(query),
+            limit = Math.Clamp(limit, 1, 50),
+            with_payload = false
+        }, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var ids = document.RootElement.GetProperty("result")
+            .EnumerateArray()
+            .Select(x => Guid.TryParse(x.GetProperty("id").GetString(), out var id) ? id : (Guid?)null)
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value)
+            .ToList();
+        var results = new List<MemorySummary>();
+        foreach (var id in ids)
+        {
+            var memory = await _memory.GetAsync(id, cancellationToken);
+            if (memory is { IsObsolete: false }) results.Add(memory);
+        }
+        return results;
+    }
+
     private static double[] BuildVector(string text)
     {
         var digest = SHA256.HashData(Encoding.UTF8.GetBytes(text));

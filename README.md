@@ -58,6 +58,7 @@ dotnet run --urls http://localhost:5000
 - `POST /api/agent-runs`
 - `POST /api/agent-runs/{id}/complete`
 - `GET /api/memory/search`
+- `GET /api/memory/semantic-search?q=...&limit=10`
 - `POST /api/memory`
 - `PATCH /api/memory/{id}/obsolete`
 - `GET /api/memory/qdrant/health`
