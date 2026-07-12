@@ -1,4 +1,6 @@
-﻿namespace NewSmartAIFactory.CompanyApi.Endpoints;
+using NewSmartAIFactory.CompanyApi.Services;
+
+namespace NewSmartAIFactory.CompanyApi.Endpoints;
 
 public static class HealthEndpoints
 {
@@ -6,11 +8,19 @@ public static class HealthEndpoints
     {
         var group = app.MapGroup("/api/health").WithTags("Health");
 
-        group.MapGet("/", () => Results.Ok(new
+        group.MapGet("/", async (QdrantMemoryIndexService qdrant, CancellationToken cancellationToken) =>
         {
-            status = "healthy",
-            timestampUtc = DateTimeOffset.UtcNow
-        }));
+            var qdrantHealthy = false;
+            try { qdrantHealthy = await qdrant.IsHealthyAsync(cancellationToken); }
+            catch (HttpRequestException) { }
+            var status = qdrantHealthy ? "healthy" : "degraded";
+            return Results.Ok(new
+            {
+                status,
+                timestampUtc = DateTimeOffset.UtcNow,
+                components = new { qdrant = qdrantHealthy }
+            });
+        });
 
         return app;
     }
