@@ -58,11 +58,11 @@ dotnet run --urls http://localhost:5000
 - `GET /api/agent-runs`
 - `POST /api/agent-runs`
 - `POST /api/agent-runs/{id}/complete`
-- `GET /api/memory/search`
+- `GET /api/memory/search?limit=50&offset=0`
 - `GET /api/memory/semantic-search?q=...&scope=company&limit=10`
 - `POST /api/memory`
 - `PATCH /api/memory/{id}/obsolete`
 - `GET /api/memory/qdrant/health`
 - `POST /api/memory/{id}/index`
-- `POST /api/memory/reindex?limit=200`
+- `POST /api/memory/reindex?limit=200&offset=0`
 - `GET /api/audit-logs?limit=50`
