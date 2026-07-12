@@ -19,6 +19,7 @@ builder.Services.AddScoped<EventStoreService>();
 builder.Services.AddScoped<WorkflowRunnerService>();
 builder.Services.AddScoped<AgentRunLogService>();
 builder.Services.AddScoped<MemoryService>();
+builder.Services.AddSingleton<IEmbeddingProvider, DeterministicEmbeddingProvider>();
 builder.Services.AddHttpClient("qdrant");
 builder.Services.AddScoped<QdrantMemoryIndexService>();
 builder.Services.AddCors(options =>

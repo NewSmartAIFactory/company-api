@@ -1,6 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using NewSmartAIFactory.CompanyApi.Models;
 
@@ -12,12 +10,14 @@ public sealed class QdrantMemoryIndexService
     private const int VectorSize = 64;
     private readonly HttpClient _http;
     private readonly MemoryService _memory;
+    private readonly IEmbeddingProvider _embedding;
 
-    public QdrantMemoryIndexService(IHttpClientFactory factory, IConfiguration configuration, MemoryService memory)
+    public QdrantMemoryIndexService(IHttpClientFactory factory, IConfiguration configuration, MemoryService memory, IEmbeddingProvider embedding)
     {
         _http = factory.CreateClient("qdrant");
         _http.BaseAddress = new Uri(configuration["Infrastructure:Qdrant"] ?? "http://localhost:6333");
         _memory = memory;
+        _embedding = embedding;
     }
 
     public async Task<bool> IsHealthyAsync(CancellationToken cancellationToken)
@@ -46,7 +46,7 @@ public sealed class QdrantMemoryIndexService
         await EnsureCollectionAsync(cancellationToken);
 
         var text = $"{memory.Title}\n{memory.Content}\n{memory.Scope}\n{memory.MemoryType}";
-        var vector = BuildVector(text);
+        var vector = _embedding.Embed(text);
         using var response = await _http.PutAsJsonAsync($"collections/{Collection}/points?wait=true", new
         {
             points = new[] { new
@@ -66,7 +66,7 @@ public sealed class QdrantMemoryIndexService
         await EnsureCollectionAsync(cancellationToken);
         using var response = await _http.PostAsJsonAsync($"collections/{Collection}/points/search", new
         {
-            vector = BuildVector(query),
+            vector = _embedding.Embed(query),
             limit = Math.Clamp(limit, 1, 50),
             with_payload = false,
             filter = string.IsNullOrWhiteSpace(scope) ? null : new { must = new[] { new { key = "scope", match = new { value = scope } } } }
@@ -98,16 +98,4 @@ public sealed class QdrantMemoryIndexService
         response.EnsureSuccessStatusCode();
     }
 
-    private static double[] BuildVector(string text)
-    {
-        var digest = SHA256.HashData(Encoding.UTF8.GetBytes(text));
-        var vector = new double[VectorSize];
-        for (var i = 0; i < vector.Length; i++)
-        {
-            var b = digest[i % digest.Length];
-            vector[i] = (b / 127.5d) - 1d;
-        }
-        var norm = Math.Sqrt(vector.Sum(x => x * x));
-        return norm == 0 ? vector : vector.Select(x => x / norm).ToArray();
-    }
 }
