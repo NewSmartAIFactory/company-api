@@ -87,6 +87,16 @@ public sealed class QdrantMemoryIndexService
         return results;
     }
 
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var response = await _http.PostAsJsonAsync($"collections/{Collection}/points/delete?wait=true", new
+        {
+            points = new[] { id }
+        }, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound) return;
+        response.EnsureSuccessStatusCode();
+    }
+
     private static double[] BuildVector(string text)
     {
         var digest = SHA256.HashData(Encoding.UTF8.GetBytes(text));
