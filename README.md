@@ -60,4 +60,6 @@ dotnet run --urls http://localhost:5000
 - `GET /api/memory/search`
 - `POST /api/memory`
 - `PATCH /api/memory/{id}/obsolete`
+- `GET /api/memory/qdrant/health`
+- `POST /api/memory/{id}/index`
 - `GET /api/audit-logs?limit=50`
